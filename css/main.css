@@ -1,0 +1,86 @@
+html, body { 
+	height: 100%; 
+	margin: 0; 
+	padding: 0 
+}
+
+.logo 
+{
+	background: #124191 url(../img/logo.png) no-repeat 1px center;
+	background-size:40px 30px;
+	color: white;
+	font-size:16px;
+	padding: 0.4em 1em 0.4em 3em;
+	position: right;
+}
+
+.yelplogo
+{
+	background: #BF0F01 url(../img/yelplogo.png) no-repeat 1px center;
+	color: white;
+	padding: 0.2em 0px 3.5em 3em;
+	position: relative;
+}
+
+.resto
+{
+	background: #f3f3f3 url(../img/rest.png) no-repeat 1px center;
+	background-size:80px 60px;
+	color: #000000;
+	padding: 0.2em 0px 0.2em 3em;
+	position: relative;
+}
+
+.bar
+{
+	background: #f3f3f3 url(../img/bar.png) no-repeat 1px center;
+	background-size:80px 60px;
+	color: #000000;
+	padding: 0.2em 0px 0.2em 3em;
+	position: relative;
+}
+
+.coffee
+{
+	background: #f3f3f3 url(../img/coffee.png) no-repeat 1px center;
+	background-size:80px 60px;
+	color: #000000;
+	padding: 0.2em 0px 0.2em 3em;
+	position: relative;
+}
+
+.drugstore
+{
+	background: #f3f3f3 url(../img/medical.png) no-repeat 1px center;
+	background-size:80px 60px;
+	color: #000000;
+	padding: 0.2em 0px 0.2em 3em;
+	position: relative;
+}
+
+
+.bank
+{
+	background: #f3f3f3 url(../img/financial.png) no-repeat 1px center;
+	background-size:80px 60px;
+	color: #000000;
+	padding: 0.2em 0px 0.2em 3em;
+	position: relative;
+}
+
+.gas
+{
+	background: #f3f3f3 url(../img/auto.png) no-repeat 1px center;
+	background-size:80px 60px;
+	color: #000000;
+	padding: 0.2em 0px 0.2em 3em;
+	position: relative;
+}
+
+.nada
+{
+	
+	color: #000000;
+	padding: 0.2em 0px 0.2em 3em;
+	position: relative;
+}

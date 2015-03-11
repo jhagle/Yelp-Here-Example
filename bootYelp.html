@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="../../favicon.ico">
+
+    <title>Yelp @ HERE</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="./css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="./css/starter-template.css" rel="stylesheet">
+
+
+    <script type="text/javascript" charset="UTF-8" src="js/defaults.js"></script>
+
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js"></script>
+    <script type="text/javascript" src="http://oauth.googlecode.com/svn/code/javascript/oauth.js"></script>
+    <script type="text/javascript" src="http://oauth.googlecode.com/svn/code/javascript/sha1.js"></script>
+	<script type="text/javascript" charset="UTF-8" src="js/utils.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="css/defaults.css">
+    <style>
+        a:link {
+            color: #93D2F0;
+        }
+
+        a:visited {
+            color: #93D2F0;
+        }
+
+        /*
+            overwrite the info bubble content css
+            background color and padding to remove "closing X" display
+        */
+        .H_ib_body {
+            background-color: #D3D3D3;
+            padding: 0 0 0 0;
+        }
+        /* overwrite the info bubble tail css */
+        .H_ib_tail
+        {
+            fill: #D3D3D3;
+        }
+        .H_ib_close
+        {
+            color: #000000;
+        }
+
+
+    </style>
+
+
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+
+</head>
+
+<body>
+
+
+
+<div class="container" >
+
+    <div class="navbar-header">
+        <form class="navbar-form navbar-right" role="form">
+
+                <span class="form-group">
+                    <span style="color: Black; font-weight: bold"><img src="./img/Yelp_Logo.png" alt="Yelp Logo" >Yelp</span>
+                    Find: <input type="text" placeholder="" id="terms" class="form-control">
+                </span>
+                <span class="form-group">
+                    Near: <input type="text" placeholder="" id="near" class="form-control" value="">
+                </span>
+            <input type="button" id="startRouting" value="Submit" onclick="searchPlaces()" />
+        </form>
+    </div><!--/.nav-collapse -->
+</div>
+
+
+
+<div id="mapContainer"/>
+
+<script type="text/javascript">
+/*
+ author James Robert Hagle
+ (C) HERE 2014
+ */
+var coord;
+var coords = [];
+var add;
+var adds = [];
+var ratings = [];
+var bis;
+var marks = [];
+var html;
+var names = [];
+var street;
+var city;
+var urls = [];
+var rateCnts = [];
+var cats = [];
+var terms = document.getElementById('terms').value;
+var near = document.getElementById('near').value;
+var group = new H.map.Group();
+var currentRoute=null;
+
+// Check whether the environment should use hi-res maps
+var hidpi = ('devicePixelRatio' in window && devicePixelRatio > 1),
+        currentBubble,
+        objContainer = new H.map.Group();
+
+var mapContainer = document.getElementById('mapContainer'),
+
+        platform = new H.service.Platform({
+            app_code: app_code,
+            app_id: app_id,
+            useCIT: true,
+            useHTTPS: true
+        }),
+        maptileService = platform.getMapTileService({
+            'type': 'base'
+        });
+maptypes = platform.createDefaultLayers(hidpi ? 512 : 256, hidpi ? 320 :
+        null);
+map = new H.Map(mapContainer, maptypes.normal.map, {
+    center: new H.geo.Point(37.776427, -122.447960),
+    zoom: 13
+});
+var router = platform.getRoutingService();
+// Establish a "Current Position"
+
+var curPos=new H.geo.Point(37.776427, -122.447960);
+// add behavior control
+new H.mapevents.Behavior(new H.mapevents.MapEvents(map));
+
+// Enable the default UI
+var ui = H.ui.UI.createDefault(map, maptypes);
+
+window.addEventListener('resize', function() {
+    map.getViewPort().resize();
+});
+
+var createAnIcon = function (line1, line2) {
+    var div = document.createElement("div");
+
+    var div = document.createElement("div");
+    var svgMarker = '<svg width="__widthAll__" height="56" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+            '<g>' +
+            '<rect id="label-box" ry="3" rx="3" stroke="#000000" height="32" width="__width__" y="10" x="27" fill="#ffffff"/>'+
+            '<text id="label-text" xml:space="preserve" text-anchor="start" font-family="Sans-serif" font-size="10" font-weight="bold" y="24" x="45" stroke-width="0" fill="#000000">__line1__</text>' +
+            '<text id="label-desc" xml:space="preserve" text-anchor="start" font-family="Sans-serif" font-size="8" y="36" x="45" stroke-width="0" fill="#000000">__line2__</text>'+
+            '<image width="48" height="57" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAA5CAYAAABwDahPAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA2hpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDowNzgwMTE3NDA3MjA2ODExODIyQUM3QUE2NzBCNkRGQiIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDo2NjY3MzVGNUFDQjgxMUUxQThGRENCOTAzMjQ4NjBFOCIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDo2NjY3MzVGNEFDQjgxMUUxQThGRENCOTAzMjQ4NjBFOCIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ1M2IChNYWNpbnRvc2gpIj4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6MDE4MDExNzQwNzIwNjgxMTgyMkFFNzA0QzYyRjYzMjgiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6MDc4MDExNzQwNzIwNjgxMTgyMkFDN0FBNjcwQjZERkIiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz5uddrfAAAJB0lEQVR42sRaa2wcVxX+Zvbh+J20dpzm5aR2auVVUUIpJWpCCVWgQCUKFBEEFCGhFkUCCSEFhFRQpUSoCMSPkgBqk0okJFVSKoXaKNSJHwlO7CaOnTixY7vr2K5fm7W93vW+ZnaGuzuz2bt37uzszpoy0tWsd2fmnu88v3PGApbmEGzco/6/NubdJ+TwTNVCePXjAMATVOAsMwAq81nNEVzBAFjB6SUyZzMQCiO4wny2BUTI45rUmRY4tRxZgLBC0yvOgFHyBSHkqXVWaHalvmetoDJC85bCsZIlCCFH4VNapYV1cpaDAiAy7pMSXqbO9DIDkhWEMwcLsRpP3OMyWanfRY4LpQSUdIFj+mdJv17Wr48zVlOp5+QEQGCEp7WeEtRtWJufXoVte7ajpn4LiivXwOEqgyi6oMTDiEUWELw3gvG+XvQ23SHnOR1AYkX1Z0uM68X1/bOCECyEFynXoAUuImtZ8lyzaQV2ff9JbPjUF1D2wBYieHlScEMOIkDk6Cx8413obz2H5sM3kt9pACL6OUZZRqZcio2LrABYt3EyghfrwhfjG68+jYZd30bp8q351WBFxuxEGzpPH0f70T4dQJgBwoLgpVrTwsS6TBElfAkeaqjCC4dexsqNz0LgaDvXQ4r64Ol8C8f2nyF/hfQV0ZeZJTJAmKVKOlhT7lKSXPWfXY1vvvoKyqt2YKmOj/qO482X/ozwQkAHQVuDzlIGV3JwihTrOmkA9U8Q4Q/+xlJ4VWC2ErJXnIqVj6Lu0yK63ulhaoZlTRBzsID7vs8/96v9KH/wk6aCyOT5UaIoKa6Hvy514ruooolkBmTttu9h3+++QsWYm0ogIpOhBLM0agagCPteexZV6/eaCp8QsNSBbzU8gF1rS7Ch0o0Sl4jZcBy3Z6NoGl7AJU9Qcwa3wK85Dbt+hMe+2ovus4OM/9OBLPBiQKBSppPx+1LUPrYGL75+BEWl67gUTVLw/PYVOLBzJR5fVczFt0iueW8ogAMtk/BMEfdeJvIVMT18Fn98/hD5lIiHRT0m6MxEx4KpC4lUFnJjz0t7TYUn68DnVuH012tNhU8cpcQaL2yuRPO+OuysL9csxjuq1u/Gzu8+oluervAi5UoZMcDS40yuU7WhglTXp7ibxRT8+IkqHCQAcuXlGytdOPW1WtTWFCctZzgcrgps/fxTcDjdDL8SeVRdNClkaQDbnqlFyfJHjDlcxbqHionwNXl3RWvKnHj9mdVkF1HLWAYr1D6Ous9UM0Es8noO0ZIyr92yiWij1ABTUfGzHVWodDtspf69D5dhTx1xpVjc+GNxZR02797E0T7M0qjAaUY0EJU1Rt9P7FnqxJcSvmzzcIoCnttUQXYSjFZIKKx648Ys2jd1IRjaRFfJciMAFVtXEB5X6iyoAG+rJomuSExa02iF8gc5LaqQrZDxiZ7oMEqpqqguccAtFsYgyhIPcAjJ5xl9w1lk0dqaAsicHChxiYctSqygFjjZkROaTzxE4Li3IseyyGVpgTQPkUJ+XuQM+GMISEpBACYCpNDGVH54hvz38uFCZqMOBfNTo8ZcTSiCX8Itb6QgAO1jQa0WsGqMyyHcu+thKITCa2pEzuApc+wxdmOQPDCY6UFqcuMj1+dsCz9OtP/mLX8iHRl/DPuHcLt1kOFBarY0yoJITw363h9BaH7QcCehBm/fmkUjIWl2joMdMwgSksftyr0jnRi+7OV0ZAaKLTJf0NMDDYCP2HlqsJULnYTZD5smcH0mP1c60j2Lw1e8SSUYU7Tkx41zbcTqMQ4bzdmF6BFIDM1/OodI0BgLhBZP+aL44kkP3hsOWAqeYKS/bp/Gy43jmhvyUoj3bgsunxxmxi7svAhmHZnApRT+6Tjpg8OE1O02llQBi4txnBiYx+CchDKXQGqEE+4EzxESNU/FRFDGydt+/OT8JE5c9Wm538lJPVLEi8bXfouZ4Rm9rYxyQKjIMmHOpNGpTozUnOT66T9+gZUPf5mr3qTTKUm3qF7hRkOFG8uIkHOkG7ua8PWApG3tcmja500qepoO4e1fNpK/gvoKU70AHQ+gmlVuT8w29KXJtf7R1dj3+1dQUb0jaz9MihxSRYpwnqTGrar2SPcx/OXFN3TBF6kJBd3IxM2aejM3yrSOf1rCaE836p+sw7KyNVmHkQmhXYIGIBvfVtU4Rq4dx19/cIwZraSGXFlTqSOPlxepeJDR33YVtZ+oQHlVHaEBgu1iEJdC6Gt+A2/tP0UJb+Y2lnWAncunUqlEzTC1CZpvdA6Hv3MYCzM3CyrFMyMd+PvP/0lN5qIWo8WcuBD7wkGmpsnR+0AUJYyBtkbbwiuKhDvtF6hJXNQCgOVciGV8bD1IWSJyH8QH73YjHPjIFoDQvAeX/tZjMdg1HermSqfZFxOxDEuM3/TCO3zRHhnqa0bQF+RoPm5SuNRcAZiBkJmY0ID0XbhIgjGY51B3Hl2nL1mM1C2Ft+rIzNwpE8SVU/0I+G7lBcA3dhkD7RNMtpGZXJ/Ti75cmkKeK6XdKRYOw/PB+byC98Mr7aTTo2mCZPGOzDYAlQOEfs+lbd52tAPRxcncgnduCP85cZ3jNvF8BM/XAqqJJTQA00PzZLXktOPUnXbMjgcozcu5vIkpBACyxELalW42tyVbwaxdfGwBl05cYLQvm1Hl/wUAtmdIW+Hau0OkMvdkfcLseAcpfpOM9m27Tz4AVIuAlhDyhzDW20LImWr6Ym+oo5lKm3KudGGpLMDyJGNKbTt6EVKYX5kX5/vRcbKHalJkO1lnqVyI50YxTPTPwjvayr3b+2ELIYF+jv/bCt5CLcD+00aa7N0810RyfYQJXh86z7zPIWu2g7dQACrDVtOU+8qpASzOdWbcEfB1oKdxlHEfuZDgtQvAiuhFEQmGiLs0kWBW9I5LgafrHWR/ea3acR+7FuAFcybd7jzTSgieRyNu4R5Sea9RrFNaKu0vlQsZ6XZv0yTh+/9OXr3gPYuJ2/PMiERmpm34uFzIbAxJW0HT9PTQWVKZRzB24zxDmy373HwOh837zN6YpK0TCfiwbvtd/OsPXQh4Y8j+72W2j/8KMADkXO1C0iPNnAAAAABJRU5ErkJggg==" />' +
+            '</g>'+
+            '</svg>';
+
+    svgMarker = svgMarker.replace(/__line1__/g, line1);
+    svgMarker = svgMarker.replace(/__line2__/g, line2);
+    svgMarker = svgMarker.replace(/__width__/g, line1.length  * 4 + 57);
+    svgMarker = svgMarker.replace(/__widthAll__/g, line1.length  * 4 + 120);
+    div.innerHTML = svgMarker;
+
+    return new H.map.Icon(svgMarker, {
+        anchor: new H.math.Point(24, 57)
+    });;
+};
+
+var svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="28px" height="36px">' +
+        '<path d="M 19 31 C 19 32.7 16.3 34 13 34 C 9.7 34 7 32.7 7 31 C 7 29.3 9.7 28 13 28 C 16.3 28 19' +
+        ' 29.3 19 31 Z" fill="#DB1200" fill-opacity=".2"/>' +
+        '<path d="M 13 0 C 9.5 0 6.3 1.3 3.8 3.8 C 1.4 7.8 0 9.4 0 12.8 C 0 16.3 1.4 19.5 3.8 21.9 L 13 31 L 22.2' +
+        ' 21.9 C 24.6 19.5 25.9 16.3 25.9 12.8 C 25.9 9.4 24.6 6.1 22.1 3.8 C 19.7 1.3 16.5 0 13 0 Z" fill="#DB1200"/>' +
+        '<path d="M 13 2.2 C 6 2.2 2.3 7.2 2.1 12.8 C 2.1 16.1 3.1 18.4 5.2 20.5 L 13 28.2 L 20.8 20.5 C' +
+        ' 22.9 18.4 23.8 16.2 23.8 12.8 C 23.6 7.07 20 2.2 13 2.2 Z" fill="#DB1200"/>' +
+        '<text font-size="12" font-weight="bold" fill="#fff" font-family="Nimbus Sans L,sans-serif" x="10" y="19">__NO__</text>' +
+        '</svg>';
+
+var auth = {
+    //
+    // Update with your auth tokens.
+    //
+    consumerKey: "7hky-KpixOLrZg4jWlaXPQ",
+    consumerSecret: "Zp2gC-L6NXdObBQZMqI8ewbMU8E",
+    accessToken: "QlsATjO7fzN-3hDBYDYwO8oV5-RgojlZ",
+    // This example is a proof of concept, for how to use the Yelp v2 API with javascript.
+    // You wouldn't actually want to expose your access token secret like this in a real application.
+    accessTokenSecret: "dJY8ZX8Ub-sF-UbGEs-06W3acI4",
+    serviceProvider: {
+        signatureMethod: "HMAC-SHA1"
+    }
+};
+
+var searchPlaces = function() {
+    marks = [];
+    terms = document.getElementById('terms').value;
+    near = document.getElementById('near').value;
+    //map.removeObject(group);
+
+
+    // Search Term will depend on the option user selected in previous screen
+    
+    switch (getURLParameter("option")){
+        case "1": terms="Food";
+				document.getElementById('terms').value="Food";
+				document.getElementById('near').value="San Francisco";
+				break;		// Search for Restaurants
+        case "2": terms="Bar"; 
+				document.getElementById('terms').value="Bar";
+				document.getElementById('near').value="San Francisco";
+				break;		// Search for Bars
+        case "3": terms="Coffee";
+				document.getElementById('terms').value="Coffee";
+				document.getElementById('near').value="San Francisco";
+				break;		// Search for Coffee & Tea
+        case "4": terms="drugstore"; 
+				document.getElementById('terms').value="Drugstore";
+				document.getElementById('near').value="San Francisco";
+				break;		// Search for Drugstores
+        case "5": terms="bank"; 
+				document.getElementById('terms').value="Bank";
+				document.getElementById('near').value="San Francisco";
+				break;		// Search for Banks
+        case "6": terms="gas station";
+				document.getElementById('terms').value="Gas Station";
+				document.getElementById('near').value="San Francisco";
+				break;			// Search for Gas Stations
+    };
+
+    near="San Francisco"; // This demo will only search around San Francisco
+     
+    var accessor = {
+        consumerSecret: auth.consumerSecret,
+        tokenSecret: auth.accessTokenSecret
+    };
+    parameters = [];
+    parameters.push(['term', terms]);
+    parameters.push(['location', near]);
+    parameters.push(['callback', 'cb']);
+    parameters.push(['oauth_consumer_key', auth.consumerKey]);
+    parameters.push(['oauth_consumer_secret', auth.consumerSecret]);
+    parameters.push(['oauth_token', auth.accessToken]);
+    parameters.push(['oauth_signature_method', 'HMAC-SHA1']);
+
+    var message = {
+        'action': 'http://api.yelp.com/v2/search',
+        'method': 'GET',
+        'parameters': parameters
+    };
+
+    OAuth.setTimestampAndNonce(message);
+    OAuth.SignatureMethod.sign(message, accessor);
+
+    var parameterMap = OAuth.getParameterMap(message.parameters);
+
+    $.ajax({
+        'url': message.action,
+        'data': parameterMap,
+        'dataType': 'jsonp',
+        'jsonpCallback': 'parseResp',
+        'success': function(data, textStats, XMLHttpRequest) {
+
+        }
+    });
+}
+
+//TO-DO: Implement HERE Geocoder for locations not containing lat/long
+//TO-DO: Better grouping of markers for better centering
+var parseResp = function(response) {
+    console.log(response);
+
+    bizes = [];
+    i = 0;
+
+    while(bizes.length < 9) {
+        bis = response.businesses[i];
+        if (bis.location.coordinate === undefined) {
+            i++;
+        }
+        else {
+            bizes.push(bis);
+            i++;
+        }
+    }
+    console.log(bizes);
+    parseInfo(bizes);
+
+}
+
+function parseInfo(array){
+    info = array;
+    for(j = 0; j < bizes.length; j++){
+        info = bizes[j];
+        console.log(info);
+        street = info.location.display_address[0];
+        city = info.location.display_address[2];
+        console.log(info.categories[0]);
+
+        cats.push(info.categories[0][0]);
+        add = street + ", " + city;
+        adds.push(add);
+        coord = new H.geo.Point(info.location.coordinate.latitude, info.location
+                .coordinate.longitude);
+        coords.push(coord);
+        ratings.push(info.rating_img_url);
+        rateCnts.push(info.review_count);
+        names.push(info.name);
+
+        urls.push(info.url);
+        var colors = [
+            new H.map.Icon(
+                    svg.replace(/__NO__/g, j + 1))
+        ];
+        marks[j] = new H.map.Marker(coords[j], {
+            icon: colors[0]
+        });
+        group.addObjects(marks);
+        addEvent(j);
+
+
+    }
+    map.setViewBounds(group.getBounds());
+}
+
+//TO-DO: Flesh out info/make look more like yelp (marker changes color on click, infobubble looks cleaner)
+//After opening info-bubble, clicking the name will take you to a closeup of the location w/pictures and ratings.
+//(Currently using the url parameter, but that has google map, maybe a mock-up of that page?)
+//Need to find a place for the "Powered by Yelp" image in the img folder
+
+function addEvent(num) {
+
+    marks[num].addEventListener("pointerdown", function(e) {
+
+
+
+        if (currentBubble)
+            ui.removeBubble(currentBubble);
+
+        // do adjust the tail to the Icons Position
+
+        pos = map.geoToScreen(e.target.getPosition());
+        pos.x += 14;
+        pos.y -= 25;
+        geoPos = map.screenToGeo(pos.x, pos.y);
+
+        html = '<div style="width: 275px; border: 5px; border-color: black">' +
+                '<p style="font-family:Arial,sans-serif; font-size:15px;">' +
+                '<a style="text-decoration:none; color:black; font-weight:bold; border:5px; border-color:black" href="'+ urls[num]  +'">'+names[num] + '</a></p>' +
+                '<p id="rating" style="font-family:Arial,sans-serif; font-size:10px;color:#5e5e5e">' +
+                '<img src=' + ratings[num] + '> ' + rateCnts[num] + ' reviews' + '</p>' +
+                '<p style="font-family:Arial,sans-serif; font-size:10px; color:black">'
+                + cats[num] + '<br><div onclick=doARoute('+curPos.lat +","+curPos.lng+"," + e.target.getPosition().lat + ',' + e.target.getPosition().lng +');><p class="logo">&nbsp;&nbsp;&nbsp;&nbsp;Take me here</p></div></p></div>';
+
+
+
+        currentBubble = new H.ui.InfoBubble(geoPos, {
+            content: html
+        });
+        ui.addBubble(currentBubble);
+
+    });
+
+    group.addObject(marks[num]);
+    map.addObject(group);
+
+}
+
+// Add a Marker for "Current Location"
+// A Geocoder instance to "reverse geocode" current location
+var geocoder=platform.getGeocodingService();
+// A function to reverse Geocode current location
+var reverseGeocode = function() {
+    geocoder.reverseGeocode({
+                prox: curPos.lat + "," + curPos.lng + "," + "100",
+                mode: "retrieveAddresses"
+            },
+            function(result)
+            {
+                var results = result.Response.View[0].Result;
+                for (var i = 0; i < 1; i++) 		// Just want to display first occurrence
+                {
+                    var pos = result.Response.View[0].Result[i].Location.DisplayPosition;
+                    var point = new H.geo.Point(pos.Latitude, pos.Longitude);
+                    var address = result.Response.View[0].Result[i].Location.Address;
+
+                    var street = address.Street;
+                    var housenumber = address.HouseNumber;
+                    var zip = address.PostalCode;
+                    var city = address.City;
+
+                    var line1 = housenumber + " " +street;
+                    var line2 = zip + " " + city;
+                    var marker = new H.map.Marker(point,
+                            {
+                                icon: createAnIcon("You're at: " + line1, line2)
+                            });
+                    marker.addEventListener("pointerdown", function(e) {
+
+                        if (currentBubble)
+                            ui.removeBubble(currentBubble);
+
+                        // do adjust the tail to the Icons Position
+
+                        pos = map.geoToScreen(e.target.getPosition());
+                        pos.x += 14;
+                        pos.y -= 25;
+                        geoPos = map.screenToGeo(pos.x, pos.y);
+
+                        html = '<div><p style="font-family:Arial,sans-serif; font-size:15px;color:black; width: 350px">You are HERE</p>'
+                                +'<p style="font-family:Arial,sans-serif;font-size:11px;color:black;">I am in a hurry. I do not want to <select id="mode" style="width: 200px"><option value="1">drive</option><option value="2">walk</option></select>'
+                                +'more than <select id="time" style="width: 200px"><option value="1">5</option><option value="2">10</option><option value="3">15</option></select> minutes.</p>'
+                                +'<button onclick=doAnIsoRoute()>Try!</button> </div>';
+
+                        currentBubble = new H.ui.InfoBubble(geoPos, {
+                            content: html
+                        });
+                        ui.addBubble(currentBubble);
+
+                    });
+                    group.addObject(marker);
+                }
+                map.addObject(group);
+//map.setViewBounds(group.getBounds());
+            },
+            function onError(error) {
+                console.log(error);
+            });
+};
+
+// Search for locations using Yelp API
+
+searchPlaces();
+reverseGeocode();
+
+// calculates an isoroute around the current position..
+var getIsolines = function(lat, lng, requestMode,time)
+{
+    var url = ["http://route.nlp.nokia.com/routing/6.2/calculateisoline.json?",
+        "jsonAttributes=1",
+        "&routeattributes=shape",
+        "&mode=fastest;",
+        requestMode,
+        ";",
+        "traffic:enabled",
+        "&start=geo!",
+        lat,
+        ",",
+        lng,
+        "&time=PT0H",
+        time,
+        "M",
+        "&app_id=",
+        app_id,
+        "&app_code=",
+        app_code,
+        "&jsoncallback=isolineCallback",
+        "&requestid=Demo1"
+    ].join("");
+
+    var script = document.createElement("script");
+    script.src = url;
+    document.body.appendChild(script);
+
+};
+
+var isolineCallback = function(response)
+{
+    if(response && response.response && response.response.isolines)
+    {
+        var requestId = response.response.metaInfo.requestId,
+        //tmp = requestId.split(","),
+        //id = tmp[0],
+        //val = tmp[1],
+                shape = response.response.isolines[0].value,
+                strip = new H.geo.Strip();
+
+        for (var i = 0; i < shape.length; i++)
+        {
+            var split = shape[i].trim().split(",");
+            if(split.length === 2){
+                var lat = parseFloat(split[0]);
+                var lon = parseFloat(split[1]);
+                strip.pushLatLngAlt( lat, lon, 0);
+            }
+        }
+
+        shp = new H.map.Polygon(strip,
+                {
+                    style: { lineWidth: 5, strokeColor: "rgba(34, 204, 34, 0.5)"}
+                }
+        );
+        //shp.setZIndex = -val;
+
+        if(currentRoute)
+            map.removeObject(currentRoute);
+        if(currentBubble){
+            ui.removeBubble(currentBubble);
+            currentBubble=null;
+        }
+        currentRoute=shp;
+//        group.addObject(shp);
+    }
+	map.addObject(shp);
+//    map.addObject(group);
+//map.setViewBounds(group.getBounds());
+}
+
+
+function doAnIsoRoute(mode,time)
+{	var rMode;
+    var time
+
+    switch(document.getElementById("mode").value){
+        case "1": rMode="car"; break;
+        case "2": rMode="pedestrian";break;
+    };
+    switch(document.getElementById("time").value){
+        case "1": time=5; break;
+        case "2": time=10; break;
+        case "3": time=15; break;
+    };
+
+    getIsolines(curPos.lat, curPos.lng, rMode,time);
+}
+
+
+// Calculates a route, from the "current position" to the marker the customer selected.
+function doARoute(fromLat,fromLng,toLat,toLng){
+    var calculateRouteParams = {
+                'waypoint0': fromLat + "," + fromLng,
+                'waypoint1': toLat + "," + toLng,
+                'mode': 'fastest;car;traffic:disabled',
+                'representation': 'display'
+            },
+            onResult = function(result) {
+                var strip = new H.geo.Strip(),
+                        shape = result.response.route[0].shape,
+                        i,
+                        l = shape.length;
+
+                for(i = 0; i < l; i++)
+                {
+                    strip.pushLatLngAlt.apply(strip, shape[i].split(',').map(function(item) { return parseFloat(item); }));
+                }
+                var polyline = new H.map.Polyline(strip,
+                        {
+                            style:
+                            {
+                                lineWidth: 10,
+                                strokeColor: "rgba(0, 128, 0, 0.7)"
+                            }
+                        });
+                if(currentRoute)
+                    map.removeObject(currentRoute);
+                if(currentBubble){
+                    ui.removeBubble(currentBubble);
+                    currentBubble=null;
+                }
+                map.addObject(polyline);
+                currentRoute=polyline;
+            },
+            onError = function(error) {
+                console.log(error);
+            }
+    router.calculateRoute(calculateRouteParams, onResult, onError);
+};
+
+
+</script>
+</body>
+
+</html>

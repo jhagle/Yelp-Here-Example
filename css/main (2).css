@@ -1,0 +1,13 @@
+html, body { 
+	height: 100%; 
+	margin: 0; 
+	padding: 0 
+}
+
+.logo 
+{
+	background: #124191 url(../img/logo.png) no-repeat 1px center;
+	color: white;
+	padding: 0.2em 0px 0.2em 3em;
+	position: relative;
+}
